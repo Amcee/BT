@@ -12,6 +12,10 @@ from os import listdir
 from os.path import isfile, join, normpath, basename
 import questions
 
+# initialize participant ID
+participant_id = 1
+
+
 # %%  Monitor/geometry
 MY_MONITOR = 'testMonitor'  # needs to exists in PsychoPy monitor center
 FULLSCREEN = False
@@ -27,8 +31,8 @@ mon.setSizePix(SCREEN_RES)
 stimulus_duration = 3  # Stimulus duration in seconds
 
 # make list of images
-mypath = r'D:\Users\Amer\Desktop\bachelorarbeit\experiment\1024x768\train_images_withQuestions'
-im_list = [f for f in listdir(mypath) if isfile(join(mypath, f))][:20]
+mypath = r'D:\Users\Amer\Desktop\bachelorarbeit\experiment\selected images\design 1'
+im_list = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 print(im_list)
 
 
@@ -45,6 +49,23 @@ settings = Titta.get_defaults(et_name)
 settings.FILENAME = 'testfile.tsv'
 settings.N_CAL_TARGETS = 5
 
+# create Pre-test Survey
+myDlg = gui.Dlg(title="Pre-test Survey")
+myDlg.addField('What is your gender?:', choices=["Male", "Female", "Other"])
+myDlg.addField('Age:')
+myDlg.addField('How many years did you have English as a subject in school?:', choices=["5 or fewer", "6 to 10", "11 or more"])
+myDlg.addField('What is the highest degree or level of education you have completed?:', choices=["Middle School", "High School", "Bachelor's Degree or higher", "Prefer not to say"])
+survey = myDlg.show()  # show dialog and wait for OK or Cancel
+if myDlg.OK:  # or if ok_data is not None
+    print(survey)
+else:
+    print('user cancelled')
+
+# create file to store answers
+with open('Pre-test Survey ' + str(participant_id) + '.txt', 'w') as file:
+    file.write(json.dumps(survey))
+
+
 # %% Connect to eye tracker and calibrate
 tracker = Titta.Connect(settings)
 if dummy_mode:
@@ -53,7 +74,7 @@ tracker.init()
 
 # Window set-up (this color will be used for calibration)
 win = visual.Window(monitor=mon, fullscr=FULLSCREEN,
-                    screen=3, size=SCREEN_RES, units='deg')
+                    screen=1, size=SCREEN_RES, units='deg')
 
 fixation_point = helpers.MyDot2(win)
 
@@ -80,23 +101,26 @@ for i in range(monitor_refresh_rate):
 
 tracker.send_message('fix off')
 
-#for testing
-f = r'D:\Users\Amer\Desktop\bachelorarbeit\experiment\1024x768\train_images_questions.json'       # path for questions json-file
+# path for questions json-file
+f = r'D:\Users\Amer\Desktop\bachelorarbeit\experiment\1024x768\train_images_questions.json'
 np.random.shuffle(images)   # shuffle images so they appear in a random order
 counter = 0
-answers = {}    # create dictionary for answers
+# create dictionary for answers
+answers = {}
 for image in images:
     im_name = image.image
+    # get image id
     x = os.path.normpath(im_name)
     x = os.path.basename(x)
     x = x.split('.')
-    image_id = x[0]        # get image id
+    image_id = x[0]
     print(image_id)
-    stim = visual.TextStim(win, questions.questions_list[image_id],
+    stim = visual.TextStim(win, questions.questions_list[image_id][0],
                            color=(1, 1, 1), colorSpace='rgb')
-    stim.draw()     # show question
+    # show question
+    stim.draw()
     t = win.flip()
-    psychopy.event.waitKeys()   # wait until any key is pressed
+    psychopy.event.waitKeys(keyList='spacebar')   # wait until any key is pressed
     for i in range(stimulus_duration * monitor_refresh_rate):
         image.draw()
         t = win.flip()
@@ -105,8 +129,9 @@ for image in images:
     tracker.send_message(''.join(['offset_', im_name]))
     stim.draw()
     win.flip()
-    myDlg = gui.Dlg(title="Answer")     # create dialog window
-    myDlg.addField('Answer:')
+    # create dialog window
+    myDlg = gui.Dlg(title="Answer")
+    myDlg.addField('Answer:', choices=questions.questions_list[image_id][1])
     answer = myDlg.show()  # save input in ok_data
     answers[image_id] = answer
 
@@ -114,7 +139,8 @@ for image in images:
     if counter == 3:
         break
 
-with open('answers.txt', 'w') as file:        # create file to store answers
+# create file to store answers
+with open('answers' + str(participant_id) + '.txt', 'w') as file:
     file.write(json.dumps(answers))
 
 win.flip()
@@ -124,13 +150,25 @@ tracker.stop_recording(gaze_data=True)
 win.close()
 tracker.save_data(mon)  # Also save screen geometry from the monitor object
 
+
+# create Questionnaire
 myDlg = gui.Dlg(title="Questionnaire")
-myDlg.addField('Difficulty:', choices=["Easy", "Medium", "Hard"])
-ok_data = myDlg.show()  # show dialog and wait for OK or Cancel
+choices = ["Very Low", "Low", "Somewhat Low", "Neutral", "Somewhat High", "High", "Very High"]
+myDlg.addField('Mental Demand:', choices=choices)
+myDlg.addField('Physical Demand:', choices=choices)
+myDlg.addField('Temporal Demand:', choices=choices)
+myDlg.addField('Effort:', choices=choices)
+myDlg.addField('Frustration:', choices=choices)
+myDlg.addField('Performance:', choices=["Very Good", "Good", "Somewhat Good", "Neutral", "Somewhat Poor", "Poor", "Very Poor"])
+questionnaire_anwers = myDlg.show()  # show dialog and wait for OK or Cancel
 if myDlg.OK:  # or if ok_data is not None
-    print(ok_data)
+    print(questionnaire_anwers)
 else:
     print('user cancelled')
+
+# create file to store answers
+with open('Questionnaire' + str(participant_id) + '.txt', 'w') as file:
+    file.write(json.dumps(questionnaire_anwers))
 
 
 # %% Open some parts of the pickle and write et-data and messages to tsv-files.
